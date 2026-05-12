@@ -11,7 +11,7 @@ public class HealBar : MonoBehaviour
 
     void Start()
     {
-       // healthbar = GetComponent<Image>();
+     
         HP = maxHealth;
     }
     
