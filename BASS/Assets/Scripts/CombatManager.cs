@@ -4,15 +4,15 @@ using System.Collections.Generic;
 
 public class CombatManager : MonoBehaviour
 {
-    [Header("UI Elements")]
-    public Button[] actionButtons;       // кнопки приёмов (4 штуки)
-    public Button startBattleButton;     // кнопка начать бой
-    public Text battleLogText;           // Legacy Text для лога
+   
+    public Button[] actionButtons;       
+    public Button startBattleButton;     
+    public Text battleLogText;           
 
-    [Header("Settings")]
-    public float turnDelay = 1.5f;       // задержка между ходами
+  
+    public float turnDelay = 1.5f;       
 
-    [Header("Boss Strategy (fixed)")]
+    
     private List<ActionType> bossPattern = new List<ActionType>
     {
         ActionType.Punch,
@@ -23,8 +23,8 @@ public class CombatManager : MonoBehaviour
     };
     private int bossPatternIndex = 0;
 
-    [Header("Combat Variables")]
-    public int playerHP = 10;            // ТВОЁ ХП, ты сам меняешь через свой код
+   
+    public int playerHP = 10;         
     public int bossHP = 10;
     private List<ActionType> playerActions = new List<ActionType>();
     private int playerActionIndex = 0;
@@ -40,7 +40,7 @@ public class CombatManager : MonoBehaviour
         }
 
         startBattleButton.onClick.AddListener(StartBattle);
-        LogMessage("Выбери 4 приёма (порядок важен), потом нажми 'Начать бой'");
+        LogMessage("Выбери 4 приёма , потом нажми 'Начать бой'");
     }
 
     void AddPlayerAction(int actionIndex)
@@ -126,22 +126,22 @@ public class CombatManager : MonoBehaviour
         if (playerDamageToBoss > 0)
         {
             bossHP -= playerDamageToBoss;
-            LogMessage($"→ Ты нанёс {playerDamageToBoss} урона боссу!");
+            LogMessage($" Ты нанёс {playerDamageToBoss} урона боссу!");
         }
         if (bossDamageToPlayer > 0)
         {
             playerHP -= bossDamageToPlayer;
-            LogMessage($"→ Босс нанёс {bossDamageToPlayer} урона тебе!");
+            LogMessage($" Босс нанёс {bossDamageToPlayer} урона тебе!");
         }
         if (playerHeal > 0)
         {
             playerHP = Mathf.Min(10, playerHP + playerHeal);
-            LogMessage($"→ Ты восстановил {playerHeal} HP!");
+            LogMessage($" Ты восстановил {playerHeal} HP!");
         }
         if (bossHeal > 0)
         {
             bossHP = Mathf.Min(10, bossHP + bossHeal);
-            LogMessage($"→ Босс восстановил {bossHeal} HP!");
+            LogMessage($" Босс восстановил {bossHeal} HP!");
         }
 
         playerHP = Mathf.Clamp(playerHP, 0, 10);
@@ -170,12 +170,12 @@ public class CombatManager : MonoBehaviour
         }
         else if (playerHP <= 0)
         {
-            LogMessage("\n=== ТЫ ПРОИГРАЛ! ===");
+            LogMessage(" ТЫ ПРОИГРАЛ! ");
             battleActive = false;
         }
         else if (bossHP <= 0)
         {
-            LogMessage("\n=== ПОБЕДА! Босс повержен! ===");
+            LogMessage("\n ПОБЕДА! Босс повержен! ");
             battleActive = false;
         }
     }
@@ -187,19 +187,19 @@ public class CombatManager : MonoBehaviour
         int pBaseHeal = GetHealValue(p);
         int bBaseHeal = GetHealValue(b);
 
-        // Блок контрит Удар и Сильный удар
+        
         if (p == ActionType.Block && (b == ActionType.Punch || b == ActionType.StrongPunch))
         {
             bDmg = 0;
             pDmg = 0;
-            LogMessage("⚡ Твой блок остановил атаку босса!");
+            LogMessage(" Твой блок остановил атаку босса!");
             return;
         }
         if (b == ActionType.Block && (p == ActionType.Punch || p == ActionType.StrongPunch))
         {
             bDmg = 0;
             pDmg = 0;
-            LogMessage("⚡ Босс заблокировал твою атаку!");
+            LogMessage(" Босс заблокировал твою атаку!");
             return;
         }
 
@@ -208,7 +208,7 @@ public class CombatManager : MonoBehaviour
         pHeal = pBaseHeal;
         bHeal = bBaseHeal;
 
-        // Отхил против удара - сначала урон, потом хил
+        
         if (p == ActionType.Heal && (b == ActionType.Punch || b == ActionType.StrongPunch))
         {
             pDmg = 0;
@@ -229,8 +229,8 @@ public class CombatManager : MonoBehaviour
     {
         switch (action)
         {
-            case ActionType.Punch: return 5;
-            case ActionType.StrongPunch: return 7;
+            case ActionType.Punch: return 2;
+            case ActionType.StrongPunch: return 4;
             default: return 0;
         }
     }
@@ -244,10 +244,10 @@ public class CombatManager : MonoBehaviour
     {
         switch (action)
         {
-            case ActionType.Punch: return "Удар (5)";
+            case ActionType.Punch: return "Удар (2)";
             case ActionType.Block: return "Блок";
             case ActionType.Heal: return "Отхил (+3)";
-            case ActionType.StrongPunch: return "Сильный удар (7)";
+            case ActionType.StrongPunch: return "Сильный удар (4)";
             default: return "?";
         }
     }
@@ -269,8 +269,8 @@ public class CombatManager : MonoBehaviour
 
 public enum ActionType
 {
-    Punch,      // Удар 5 урона
-    Block,      // Блок (контрит Punch и StrongPunch)
-    Heal,       // Отхил +3
-    StrongPunch // Сильный удар 7 урона
+    Punch,      
+    Block,      
+    Heal,       
+    StrongPunch 
 }
