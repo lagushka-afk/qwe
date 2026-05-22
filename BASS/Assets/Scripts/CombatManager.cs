@@ -10,9 +10,10 @@ public class CombatManager : MonoBehaviour
     public Text battleLogText;           
 
   
-    public float turnDelay = 1.5f;       
+    public float turnDelay = 1.5f;
+    private int i = 0;
 
-    
+
     private List<ActionType> bossPattern = new List<ActionType>
     {
         ActionType.Punch,
@@ -260,10 +261,25 @@ public class CombatManager : MonoBehaviour
         return s.TrimEnd(' ', '→');
     }
 
+   
+
     void LogMessage(string msg)
     {
         battleLogText.text += msg + "\n";
         Debug.Log(msg);
+
+        i++;
+
+        if (i > 15)
+        {
+            
+            int firstNewLine = battleLogText.text.IndexOf('\n');
+            if (firstNewLine >= 0)
+            {
+                battleLogText.text = battleLogText.text.Substring(firstNewLine + 1);
+                i--; 
+            }
+        }
     }
 }
 
@@ -274,3 +290,5 @@ public enum ActionType
     Heal,       
     StrongPunch 
 }
+
+ 

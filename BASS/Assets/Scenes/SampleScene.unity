@@ -319,10 +319,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e343610a72676f24c837f84d0f69ed1f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerController
-  queue: []
-  isExecuting: 0
-  shotpos: {fileID: 0}
-  Bullet: {fileID: 0}
 --- !u!1 &329872820
 GameObject:
   m_ObjectHideFlags: 0
@@ -898,8 +894,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -728, y: 232}
-  m_SizeDelta: {x: 259.8431, y: 443.6357}
+  m_AnchoredPosition: {x: -546, y: 245}
+  m_SizeDelta: {x: 803.36, y: 552.4}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &573349570
 MonoBehaviour:
@@ -923,18 +919,18 @@ MonoBehaviour:
       m_Calls: []
   m_FontData:
     m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
-    m_FontSize: 40
+    m_FontSize: 20
     m_FontStyle: 1
     m_BestFit: 0
-    m_MinSize: 4
-    m_MaxSize: 40
-    m_Alignment: 0
+    m_MinSize: 0
+    m_MaxSize: 118
+    m_Alignment: 6
     m_AlignByGeometry: 0
     m_RichText: 1
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: 1
+  m_Text: 
 --- !u!222 &573349571
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -1771,8 +1767,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -476, y: -494}
-  m_SizeDelta: {x: 239.6, y: 93.5}
+  m_AnchoredPosition: {x: -438, y: -477}
+  m_SizeDelta: {x: 239.6, y: 114.63}
   m_Pivot: {x: 0.5, y: 0.49999946}
 --- !u!114 &2089296159
 MonoBehaviour:
@@ -1794,8 +1790,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
-  m_Type: 1
+  m_Sprite: {fileID: 3980168229369012863, guid: a7e3ba129c6664a4cb9542ccbb6c7c39, type: 3}
+  m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
