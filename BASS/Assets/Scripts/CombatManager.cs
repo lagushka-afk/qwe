@@ -1,39 +1,56 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 
 public class CombatManager : MonoBehaviour
 {
-   
-    public Button[] actionButtons;       
-    public Button startBattleButton;     
-    public Text battleLogText;           
+    [Header("UI Elements")]
+    public Button[] actionButtons;           
+    public Button startBattleButton;         
+    public Button restartButton;             
+    public Text battleLogText;               
 
-  
-    public float turnDelay = 1.5f;
-    private int i = 0;
+    [Header("Settings")]
+    public float turnDelay = 1.5f;          
 
-
-    private List<ActionType> bossPattern = new List<ActionType>
+    [Header("Scene Settings")]
+    public string[] bossSceneNames = new string[]
     {
-        ActionType.Punch,
-        ActionType.Block,
-        ActionType.Heal,
-        ActionType.StrongPunch,
-        ActionType.Punch
+        "Scene_Boss1",
+        "Scene_Boss2",
+        "Scene_Boss3"
     };
-    private int bossPatternIndex = 0;
+    public int currentBossIndex = 0;         
 
    
-    public int playerHP = 10;         
-    public int bossHP = 10;
-    private List<ActionType> playerActions = new List<ActionType>();
+    private string[] bossNames = { "Босс 1", "Босс 2", "Босс 3" };
+    private int[] bossHPValues = { 10, 12, 15 };
+    private List<List<int>> bossPatterns = new List<List<int>>();
+
+   
+    private int playerHP = 10;
+    private int bossHP = 10;
+    private string bossName = "Босс";
+    private List<int> currentBossPattern = new List<int>();
+    private int bossPatternIndex = 0;
+    private List<int> playerActions = new List<int>();
     private int playerActionIndex = 0;
     private bool battleActive = false;
     private bool waitingForTurn = false;
 
     void Start()
     {
+       
+        bossPatterns.Add(new List<int> { 0, 1, 2, 3, 0 });
+       
+        bossPatterns.Add(new List<int> { 2, 3, 1, 3, 0 });
+        
+        bossPatterns.Add(new List<int> { 3, 1, 3, 2, 3 });
+
+        LoadBossData();
+
+        
         for (int i = 0; i < actionButtons.Length; i++)
         {
             int index = i;
@@ -41,7 +58,20 @@ public class CombatManager : MonoBehaviour
         }
 
         startBattleButton.onClick.AddListener(StartBattle);
-        LogMessage("Выбери 4 приёма , потом нажми 'Начать бой'");
+
+        if (restartButton != null)
+            restartButton.onClick.AddListener(RestartBattle);
+
+        LogMessage($"ВЫБЕРИ 4 ПРИЁМА, ПОТОМ НАЖМИ 'НАЧАТЬ БОЙ'");
+        LogMessage($"БОСС: {bossName} (HP: {bossHP})");
+        LogMessage($"0=Удар(2) | 1=Блок | 2=Отхил(+3) | 3=СильныйУдар(4)");
+    }
+
+    void LoadBossData()
+    {
+        bossName = bossNames[currentBossIndex];
+        bossHP = bossHPValues[currentBossIndex];
+        currentBossPattern = new List<int>(bossPatterns[currentBossIndex]);
     }
 
     void AddPlayerAction(int actionIndex)
@@ -58,9 +88,9 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
-        ActionType selectedAction = (ActionType)actionIndex;
+        int selectedAction = actionIndex;
         playerActions.Add(selectedAction);
-        LogMessage($"Выбран приём: {GetActionName(selectedAction)}. Осталось: {4 - playerActions.Count}");
+        LogMessage($"Выбрано: {GetActionName(selectedAction)}. Осталось: {4 - playerActions.Count}");
     }
 
     void StartBattle()
@@ -73,7 +103,7 @@ public class CombatManager : MonoBehaviour
 
         battleActive = true;
         playerHP = 10;
-        bossHP = 10;
+        bossHP = bossHPValues[currentBossIndex];
         playerActionIndex = 0;
         bossPatternIndex = 0;
         waitingForTurn = false;
@@ -82,9 +112,12 @@ public class CombatManager : MonoBehaviour
         foreach (Button btn in actionButtons)
             btn.interactable = false;
 
-        LogMessage("=== БОЙ НАЧАЛСЯ ===");
-        LogMessage($"Твой порядок: {GetActionListString(playerActions)}");
-        LogMessage($"Босс: Удар → Блок → Отхил → Сильный удар → Удар (по кругу)");
+        LogMessage($"\n=== БОЙ ПРОТИВ {bossName} НАЧАЛСЯ ===");
+
+        string patternStr = "";
+        foreach (var a in currentBossPattern)
+            patternStr += GetActionName(a) + " → ";
+        LogMessage($"ПАТТЕРН БОССА: {patternStr.TrimEnd(' ', '→')} (повторяется по кругу)");
 
         Invoke(nameof(ExecuteTurn), turnDelay);
     }
@@ -96,26 +129,37 @@ public class CombatManager : MonoBehaviour
 
         if (playerHP <= 0)
         {
-            LogMessage("\n=== ТЫ ПРОИГРАЛ! ===");
+            LogMessage($"\n=== ТЫ ПРОИГРАЛ {bossName}! ===");
+            LogMessage("НАЖМИ 'НАЧАТЬ ЗАНОВО' ЧТОБЫ ПОПРОБОВАТЬ СНОВА");
             battleActive = false;
             return;
         }
 
         if (bossHP <= 0)
         {
-            LogMessage("\n=== ПОБЕДА! Босс повержен! ===");
+            LogMessage($"\n=== ПОБЕДА! {bossName} ПОВЕРЖЕН! ===");
             battleActive = false;
+
+            if (currentBossIndex >= 2)
+            {
+                LogMessage("\n=== ТЫ ПРОШЁЛ ВСЮ ИГРУ! ПОЗДРАВЛЯЮ! ===");
+            }
+            else
+            {
+                LogMessage($"\nЧЕРЕЗ 2 СЕКУНДЫ ПЕРЕХОД К СЛЕДУЮЩЕМУ БОССУ...");
+                Invoke(nameof(GoToNextBoss), 2f);
+            }
             return;
         }
 
         waitingForTurn = true;
 
-        ActionType playerAction = playerActions[playerActionIndex];
-        ActionType bossAction = bossPattern[bossPatternIndex];
+        int playerAction = playerActions[playerActionIndex];
+        int bossAction = currentBossPattern[bossPatternIndex];
 
-        LogMessage($"\n--- Ход {playerActionIndex + 1} ---");
-        LogMessage($"Ты: {GetActionName(playerAction)}");
-        LogMessage($"Босс: {GetActionName(bossAction)}");
+        LogMessage($"\n--- ХОД {playerActionIndex + 1} ---");
+        LogMessage($"ТЫ: {GetActionName(playerAction)}");
+        LogMessage($"{bossName}: {GetActionName(bossAction)}");
 
         int playerDamageToBoss = 0;
         int bossDamageToPlayer = 0;
@@ -127,28 +171,27 @@ public class CombatManager : MonoBehaviour
         if (playerDamageToBoss > 0)
         {
             bossHP -= playerDamageToBoss;
-            LogMessage($" Ты нанёс {playerDamageToBoss} урона боссу!");
+            LogMessage($"→ ТЫ НАНЁС {playerDamageToBoss} УРОНА!");
         }
         if (bossDamageToPlayer > 0)
         {
             playerHP -= bossDamageToPlayer;
-            LogMessage($" Босс нанёс {bossDamageToPlayer} урона тебе!");
+            LogMessage($"→ {bossName} НАНЁС {bossDamageToPlayer} УРОНА ТЕБЕ!");
         }
         if (playerHeal > 0)
         {
             playerHP = Mathf.Min(10, playerHP + playerHeal);
-            LogMessage($" Ты восстановил {playerHeal} HP!");
+            LogMessage($"→ ТЫ ВОССТАНОВИЛ {playerHeal} HP!");
         }
         if (bossHeal > 0)
         {
             bossHP = Mathf.Min(10, bossHP + bossHeal);
-            LogMessage($" Босс восстановил {bossHeal} HP!");
+            LogMessage($"→ {bossName} ВОССТАНОВИЛ {bossHeal} HP!");
         }
 
         playerHP = Mathf.Clamp(playerHP, 0, 10);
         bossHP = Mathf.Clamp(bossHP, 0, 10);
 
-        
         HealthBar[] allHealthBars = FindObjectsOfType<HealthBar>();
         foreach (HealthBar hb in allHealthBars)
         {
@@ -158,10 +201,10 @@ public class CombatManager : MonoBehaviour
                 hb.SetHealth(bossHP);
         }
 
-        LogMessage($"Твоё HP: {playerHP}/10 | HP босса: {bossHP}/10");
+        LogMessage($"ТВОЁ HP: {playerHP}/10 | HP {bossName}: {bossHP}/{bossHPValues[currentBossIndex]}");
 
         playerActionIndex = (playerActionIndex + 1) % playerActions.Count;
-        bossPatternIndex = (bossPatternIndex + 1) % bossPattern.Count;
+        bossPatternIndex = (bossPatternIndex + 1) % currentBossPattern.Count;
 
         waitingForTurn = false;
 
@@ -169,19 +212,24 @@ public class CombatManager : MonoBehaviour
         {
             Invoke(nameof(ExecuteTurn), turnDelay);
         }
-        else if (playerHP <= 0)
+    }
+
+    void GoToNextBoss()
+    {
+        currentBossIndex++;
+
+        if (currentBossIndex <= 2)
         {
-            LogMessage(" ТЫ ПРОИГРАЛ! ");
-            battleActive = false;
-        }
-        else if (bossHP <= 0)
-        {
-            LogMessage("\n ПОБЕДА! Босс повержен! ");
-            battleActive = false;
+            SceneManager.LoadScene(bossSceneNames[currentBossIndex]);
         }
     }
 
-    void ResolveCombat(ActionType p, ActionType b, ref int pDmg, ref int bDmg, ref int pHeal, ref int bHeal)
+    void RestartBattle()
+    {
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    void ResolveCombat(int p, int b, ref int pDmg, ref int bDmg, ref int pHeal, ref int bHeal)
     {
         int pBaseDmg = GetBaseDamage(p);
         int bBaseDmg = GetBaseDamage(b);
@@ -189,18 +237,18 @@ public class CombatManager : MonoBehaviour
         int bBaseHeal = GetHealValue(b);
 
         
-        if (p == ActionType.Block && (b == ActionType.Punch || b == ActionType.StrongPunch))
+        if (p == 1 && (b == 0 || b == 3))
         {
             bDmg = 0;
             pDmg = 0;
-            LogMessage(" Твой блок остановил атаку босса!");
+            LogMessage("⚡ ТВОЙ БЛОК ОСТАНОВИЛ АТАКУ!");
             return;
         }
-        if (b == ActionType.Block && (p == ActionType.Punch || p == ActionType.StrongPunch))
+        if (b == 1 && (p == 0 || p == 3))
         {
             bDmg = 0;
             pDmg = 0;
-            LogMessage(" Босс заблокировал твою атаку!");
+            LogMessage($"⚡ {bossName} ЗАБЛОКИРОВАЛ ТВОЮ АТАКУ!");
             return;
         }
 
@@ -209,15 +257,15 @@ public class CombatManager : MonoBehaviour
         pHeal = pBaseHeal;
         bHeal = bBaseHeal;
 
-        
-        if (p == ActionType.Heal && (b == ActionType.Punch || b == ActionType.StrongPunch))
+       
+        if (p == 2 && (b == 0 || b == 3))
         {
             pDmg = 0;
             bDmg = bBaseDmg;
             pHeal = pBaseHeal;
             bHeal = 0;
         }
-        else if (b == ActionType.Heal && (p == ActionType.Punch || p == ActionType.StrongPunch))
+        else if (b == 2 && (p == 0 || p == 3))
         {
             bDmg = 0;
             pDmg = pBaseDmg;
@@ -226,69 +274,36 @@ public class CombatManager : MonoBehaviour
         }
     }
 
-    int GetBaseDamage(ActionType action)
+    int GetBaseDamage(int action)
     {
         switch (action)
         {
-            case ActionType.Punch: return 2;
-            case ActionType.StrongPunch: return 4;
+            case 0: return 2;      
+            case 3ы: return 4;      
             default: return 0;
         }
     }
 
-    int GetHealValue(ActionType action)
+    int GetHealValue(int action)
     {
-        return action == ActionType.Heal ? 3 : 0;
+        return action == 2 ? 3 : 0;
     }
 
-    string GetActionName(ActionType action)
+    string GetActionName(int action)
     {
         switch (action)
         {
-            case ActionType.Punch: return "Удар (2)";
-            case ActionType.Block: return "Блок";
-            case ActionType.Heal: return "Отхил (+3)";
-            case ActionType.StrongPunch: return "Сильный удар (4)";
+            case 0: return "УДАР (2)";
+            case 1: return "БЛОК";
+            case 2: return "ОТХИЛ (+3)";
+            case 3: return "СИЛЬНЫЙ УДАР (4)";
             default: return "?";
         }
     }
-
-    string GetActionListString(List<ActionType> actions)
-    {
-        string s = "";
-        foreach (var a in actions)
-            s += GetActionName(a) + " → ";
-        return s.TrimEnd(' ', '→');
-    }
-
-   
 
     void LogMessage(string msg)
     {
         battleLogText.text += msg + "\n";
         Debug.Log(msg);
-
-        i++;
-
-        if (i > 15)
-        {
-            
-            int firstNewLine = battleLogText.text.IndexOf('\n');
-            if (firstNewLine >= 0)
-            {
-                battleLogText.text = battleLogText.text.Substring(firstNewLine + 1);
-                i--; 
-            }
-        }
     }
 }
-
-public enum ActionType
-{
-    Punch,      
-    Block,      
-    Heal,       
-    StrongPunch 
-}
-
- 
