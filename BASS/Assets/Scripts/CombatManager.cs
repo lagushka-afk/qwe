@@ -5,303 +5,170 @@ using UnityEngine.SceneManagement;
 
 public class CombatManager : MonoBehaviour
 {
-    [Header("UI Elements")]
-    public Button[] actionButtons;           
-    public Button startBattleButton;         
-    public Button restartButton;             
-    public Text battleLogText;               
+    public Button[] actionButtons;
+    public Button startBattleButton;
+    public Text battleLogText;
+    public float turnDelay = 1.5f;
 
-    [Header("Settings")]
-    public float turnDelay = 1.5f;          
+    public string nextSceneName;
+    public string currentSceneName;
 
-    [Header("Scene Settings")]
-    public string[] bossSceneNames = new string[]
-    {
-        "Scene_Boss1",
-        "Scene_Boss2",
-        "Scene_Boss3"
-    };
-    public int currentBossIndex = 0;         
-
-   
-    private string[] bossNames = { "Босс 1", "Босс 2", "Босс 3" };
-    private int[] bossHPValues = { 10, 12, 15 };
-    private List<List<int>> bossPatterns = new List<List<int>>();
-
-   
     private int playerHP = 10;
     private int bossHP = 10;
-    private string bossName = "Босс";
-    private List<int> currentBossPattern = new List<int>();
-    private int bossPatternIndex = 0;
-    private List<int> playerActions = new List<int>();
-    private int playerActionIndex = 0;
-    private bool battleActive = false;
-    private bool waitingForTurn = false;
+    private List<int> playerMoves = new List<int>();
+    private int moveIndex = 0;
+    private int bossMoveIndex = 0;
+    private bool fighting = false;
+    private bool waiting = false;
+
+    private List<int> bossPattern = new List<int> { 0, 1, 2, 3, 0 };
 
     void Start()
     {
-       
-        bossPatterns.Add(new List<int> { 0, 1, 2, 3, 0 });
-       
-        bossPatterns.Add(new List<int> { 2, 3, 1, 3, 0 });
-        
-        bossPatterns.Add(new List<int> { 3, 1, 3, 2, 3 });
+        currentSceneName = SceneManager.GetActiveScene().name;
 
-        LoadBossData();
-
-        
         for (int i = 0; i < actionButtons.Length; i++)
         {
-            int index = i;
-            actionButtons[i].onClick.AddListener(() => AddPlayerAction(index));
+            int idx = i;
+            actionButtons[i].onClick.AddListener(() => AddMove(idx));
         }
+        startBattleButton.onClick.AddListener(StartFight);
 
-        startBattleButton.onClick.AddListener(StartBattle);
-
-        if (restartButton != null)
-            restartButton.onClick.AddListener(RestartBattle);
-
-        LogMessage($"ВЫБЕРИ 4 ПРИЁМА, ПОТОМ НАЖМИ 'НАЧАТЬ БОЙ'");
-        LogMessage($"БОСС: {bossName} (HP: {bossHP})");
-        LogMessage($"0=Удар(2) | 1=Блок | 2=Отхил(+3) | 3=СильныйУдар(4)");
+        Log("Выбери 4 приема");
+        Log("0=Удар(2) 1=Блок 2=Хил(3) 3=Сильный(4)");
+        Log($"Босс HP: {bossHP}");
+        Log($"Сцена: {currentSceneName}");
     }
 
-    void LoadBossData()
+    void AddMove(int move)
     {
-        bossName = bossNames[currentBossIndex];
-        bossHP = bossHPValues[currentBossIndex];
-        currentBossPattern = new List<int>(bossPatterns[currentBossIndex]);
+        if (fighting) { Log("Бой идет"); return; }
+        if (playerMoves.Count >= 4) { Log("4 приема выбрано"); return; }
+        playerMoves.Add(move);
+        Log($"Выбрал: {MoveName(move)}. Осталось: {4 - playerMoves.Count}");
     }
 
-    void AddPlayerAction(int actionIndex)
+    void StartFight()
     {
-        if (battleActive)
-        {
-            LogMessage("Бой уже идёт, нельзя менять приёмы");
-            return;
-        }
-
-        if (playerActions.Count >= 4)
-        {
-            LogMessage("Уже выбрано 4 приёма! Нажми 'Начать бой'");
-            return;
-        }
-
-        int selectedAction = actionIndex;
-        playerActions.Add(selectedAction);
-        LogMessage($"Выбрано: {GetActionName(selectedAction)}. Осталось: {4 - playerActions.Count}");
-    }
-
-    void StartBattle()
-    {
-        if (playerActions.Count != 4)
-        {
-            LogMessage("Нужно выбрать ровно 4 приёма!");
-            return;
-        }
-
-        battleActive = true;
+        if (playerMoves.Count != 4) { Log("Надо 4 приема"); return; }
+        fighting = true;
         playerHP = 10;
-        bossHP = bossHPValues[currentBossIndex];
-        playerActionIndex = 0;
-        bossPatternIndex = 0;
-        waitingForTurn = false;
-
+        bossHP = 10;
+        moveIndex = 0;
+        bossMoveIndex = 0;
         startBattleButton.interactable = false;
-        foreach (Button btn in actionButtons)
-            btn.interactable = false;
-
-        LogMessage($"\n=== БОЙ ПРОТИВ {bossName} НАЧАЛСЯ ===");
-
-        string patternStr = "";
-        foreach (var a in currentBossPattern)
-            patternStr += GetActionName(a) + " → ";
-        LogMessage($"ПАТТЕРН БОССА: {patternStr.TrimEnd(' ', '→')} (повторяется по кругу)");
-
-        Invoke(nameof(ExecuteTurn), turnDelay);
+        foreach (Button b in actionButtons) b.interactable = false;
+        UpdateHealthBars();
+        Log("=== БОЙ НАЧАЛСЯ ===");
+        Invoke(nameof(NextTurn), turnDelay);
     }
 
-    void ExecuteTurn()
+    void NextTurn()
     {
-        if (!battleActive || waitingForTurn)
-            return;
+        if (!fighting || waiting) return;
 
         if (playerHP <= 0)
         {
-            LogMessage($"\n=== ТЫ ПРОИГРАЛ {bossName}! ===");
-            LogMessage("НАЖМИ 'НАЧАТЬ ЗАНОВО' ЧТОБЫ ПОПРОБОВАТЬ СНОВА");
-            battleActive = false;
+            Log("ТЫ ПРОИГРАЛ. ПЕРЕЗАПУСК...");
+            fighting = false;
+            Invoke(nameof(RestartScene), 2f);
             return;
         }
 
         if (bossHP <= 0)
         {
-            LogMessage($"\n=== ПОБЕДА! {bossName} ПОВЕРЖЕН! ===");
-            battleActive = false;
-
-            if (currentBossIndex >= 2)
-            {
-                LogMessage("\n=== ТЫ ПРОШЁЛ ВСЮ ИГРУ! ПОЗДРАВЛЯЮ! ===");
-            }
-            else
-            {
-                LogMessage($"\nЧЕРЕЗ 2 СЕКУНДЫ ПЕРЕХОД К СЛЕДУЮЩЕМУ БОССУ...");
-                Invoke(nameof(GoToNextBoss), 2f);
-            }
+            Log("БОСС ПОВЕРЖЕН");
+            fighting = false;
+            Log($"ПЕРЕХОД НА СЦЕНУ: {nextSceneName}");
+            Invoke(nameof(NextScene), 2f);
             return;
         }
 
-        waitingForTurn = true;
+        waiting = true;
 
-        int playerAction = playerActions[playerActionIndex];
-        int bossAction = currentBossPattern[bossPatternIndex];
+        int playerMove = playerMoves[moveIndex];
+        int bossMove = bossPattern[bossMoveIndex];
 
-        LogMessage($"\n--- ХОД {playerActionIndex + 1} ---");
-        LogMessage($"ТЫ: {GetActionName(playerAction)}");
-        LogMessage($"{bossName}: {GetActionName(bossAction)}");
+        Log($"Ход {moveIndex + 1}: Ты {MoveName(playerMove)} | Босс {MoveName(bossMove)}");
 
-        int playerDamageToBoss = 0;
-        int bossDamageToPlayer = 0;
-        int playerHeal = 0;
-        int bossHeal = 0;
+        int playerDmg = 0, bossDmg = 0, playerHeal = 0, bossHeal = 0;
+        Fight(playerMove, bossMove, ref playerDmg, ref bossDmg, ref playerHeal, ref bossHeal);
 
-        ResolveCombat(playerAction, bossAction, ref playerDamageToBoss, ref bossDamageToPlayer, ref playerHeal, ref bossHeal);
-
-        if (playerDamageToBoss > 0)
-        {
-            bossHP -= playerDamageToBoss;
-            LogMessage($"→ ТЫ НАНЁС {playerDamageToBoss} УРОНА!");
-        }
-        if (bossDamageToPlayer > 0)
-        {
-            playerHP -= bossDamageToPlayer;
-            LogMessage($"→ {bossName} НАНЁС {bossDamageToPlayer} УРОНА ТЕБЕ!");
-        }
-        if (playerHeal > 0)
-        {
-            playerHP = Mathf.Min(10, playerHP + playerHeal);
-            LogMessage($"→ ТЫ ВОССТАНОВИЛ {playerHeal} HP!");
-        }
-        if (bossHeal > 0)
-        {
-            bossHP = Mathf.Min(10, bossHP + bossHeal);
-            LogMessage($"→ {bossName} ВОССТАНОВИЛ {bossHeal} HP!");
-        }
+        if (playerDmg > 0) { bossHP -= playerDmg; Log($"Ты нанес {playerDmg} урона"); }
+        if (bossDmg > 0) { playerHP -= bossDmg; Log($"Босс нанес {bossDmg} урона"); }
+        if (playerHeal > 0) { playerHP = Mathf.Min(10, playerHP + playerHeal); Log($"Ты вылечил {playerHeal} HP"); }
+        if (bossHeal > 0) { bossHP = Mathf.Min(10, bossHP + bossHeal); Log($"Босс вылечил {bossHeal} HP"); }
 
         playerHP = Mathf.Clamp(playerHP, 0, 10);
         bossHP = Mathf.Clamp(bossHP, 0, 10);
 
-        HealthBar[] allHealthBars = FindObjectsOfType<HealthBar>();
-        foreach (HealthBar hb in allHealthBars)
-        {
-            if (hb.isPlayer)
-                hb.SetHealth(playerHP);
-            else
-                hb.SetHealth(bossHP);
-        }
+        UpdateHealthBars();
+        Log($"Твое HP: {playerHP} | Босс HP: {bossHP}");
 
-        LogMessage($"ТВОЁ HP: {playerHP}/10 | HP {bossName}: {bossHP}/{bossHPValues[currentBossIndex]}");
+        moveIndex = (moveIndex + 1) % playerMoves.Count;
+        bossMoveIndex = (bossMoveIndex + 1) % bossPattern.Count;
 
-        playerActionIndex = (playerActionIndex + 1) % playerActions.Count;
-        bossPatternIndex = (bossPatternIndex + 1) % currentBossPattern.Count;
-
-        waitingForTurn = false;
-
-        if (battleActive && playerHP > 0 && bossHP > 0)
-        {
-            Invoke(nameof(ExecuteTurn), turnDelay);
-        }
+        waiting = false;
+        if (fighting && playerHP > 0 && bossHP > 0)
+            Invoke(nameof(NextTurn), turnDelay);
     }
 
-    void GoToNextBoss()
+    void Fight(int p, int b, ref int pDmg, ref int bDmg, ref int pH, ref int bH)
     {
-        currentBossIndex++;
+        int pBaseDmg = (p == 0) ? 2 : (p == 3) ? 4 : 0;
+        int bBaseDmg = (b == 0) ? 2 : (b == 3) ? 4 : 0;
+        int pBaseHeal = (p == 2) ? 3 : 0;
+        int bBaseHeal = (b == 2) ? 3 : 0;
 
-        if (currentBossIndex <= 2)
-        {
-            SceneManager.LoadScene(bossSceneNames[currentBossIndex]);
-        }
-    }
-
-    void RestartBattle()
-    {
-        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
-    }
-
-    void ResolveCombat(int p, int b, ref int pDmg, ref int bDmg, ref int pHeal, ref int bHeal)
-    {
-        int pBaseDmg = GetBaseDamage(p);
-        int bBaseDmg = GetBaseDamage(b);
-        int pBaseHeal = GetHealValue(p);
-        int bBaseHeal = GetHealValue(b);
-
-        
-        if (p == 1 && (b == 0 || b == 3))
-        {
-            bDmg = 0;
-            pDmg = 0;
-            LogMessage("⚡ ТВОЙ БЛОК ОСТАНОВИЛ АТАКУ!");
-            return;
-        }
-        if (b == 1 && (p == 0 || p == 3))
-        {
-            bDmg = 0;
-            pDmg = 0;
-            LogMessage($"⚡ {bossName} ЗАБЛОКИРОВАЛ ТВОЮ АТАКУ!");
-            return;
-        }
+        if (p == 1 && (b == 0 || b == 3)) { Log("Твой блок"); return; }
+        if (b == 1 && (p == 0 || p == 3)) { Log("Блок босса"); return; }
 
         pDmg = pBaseDmg;
         bDmg = bBaseDmg;
-        pHeal = pBaseHeal;
-        bHeal = bBaseHeal;
+        pH = pBaseHeal;
+        bH = bBaseHeal;
 
-       
-        if (p == 2 && (b == 0 || b == 3))
-        {
-            pDmg = 0;
-            bDmg = bBaseDmg;
-            pHeal = pBaseHeal;
-            bHeal = 0;
-        }
-        else if (b == 2 && (p == 0 || p == 3))
-        {
-            bDmg = 0;
-            pDmg = pBaseDmg;
-            bHeal = bBaseHeal;
-            pHeal = 0;
-        }
+        if (p == 2 && (b == 0 || b == 3)) { bDmg = bBaseDmg; pH = pBaseHeal; pDmg = 0; bH = 0; }
+        if (b == 2 && (p == 0 || p == 3)) { pDmg = pBaseDmg; bH = bBaseHeal; bDmg = 0; pH = 0; }
     }
 
-    int GetBaseDamage(int action)
+    void UpdateHealthBars()
     {
-        switch (action)
+        HealthBar[] bars = FindObjectsOfType<HealthBar>();
+        foreach (HealthBar h in bars)
         {
-            case 0: return 2;      
-            case 3ы: return 4;      
-            default: return 0;
+            if (h.isPlayer) h.SetHealth(playerHP);
+            else h.SetHealth(bossHP);
         }
     }
 
-    int GetHealValue(int action)
+    void NextScene()
     {
-        return action == 2 ? 3 : 0;
-    }
-
-    string GetActionName(int action)
-    {
-        switch (action)
+        if (!string.IsNullOrEmpty(nextSceneName))
         {
-            case 0: return "УДАР (2)";
-            case 1: return "БЛОК";
-            case 2: return "ОТХИЛ (+3)";
-            case 3: return "СИЛЬНЫЙ УДАР (4)";
-            default: return "?";
+            SceneManager.LoadScene(nextSceneName);
+        }
+        else
+        {
+            Log("ОШИБКА: Не указано имя следующей сцены!");
+            Debug.LogError("nextSceneName не задан в инспекторе");
         }
     }
 
-    void LogMessage(string msg)
+    void RestartScene()
+    {
+        SceneManager.LoadScene(currentSceneName);
+    }
+
+    string MoveName(int m)
+    {
+        if (m == 0) return "Удар(2)";
+        if (m == 1) return "Блок";
+        if (m == 2) return "Хил(3)";
+        return "Сильный(4)";
+    }
+
+    void Log(string msg)
     {
         battleLogText.text += msg + "\n";
         Debug.Log(msg);
