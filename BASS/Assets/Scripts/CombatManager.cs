@@ -10,23 +10,22 @@ public class CombatManager : MonoBehaviour
     public Text battleLogText;
     public float turnDelay = 1.5f;
 
-    public string nextSceneName;
-    public string currentSceneName;
-
     private int playerHP = 10;
     private int bossHP = 10;
+    private int bossLevel = 1;
     private List<int> playerMoves = new List<int>();
     private int moveIndex = 0;
     private int bossMoveIndex = 0;
     private bool fighting = false;
     private bool waiting = false;
 
-    private List<int> bossPattern = new List<int> { 0, 1, 2, 3, 0 };
+    private List<int> bossPattern1 = new List<int> { 0, 1, 0, 2, 3, 1, 0 };
+    private List<int> bossPattern2 = new List<int> { 3, 1, 3, 2, 0, 3, 1 };
+    private List<int> bossPattern3 = new List<int> { 3, 3, 1, 3, 2, 3, 3, 1 };
+    private List<int> currentPattern;
 
     void Start()
     {
-        currentSceneName = SceneManager.GetActiveScene().name;
-
         for (int i = 0; i < actionButtons.Length; i++)
         {
             int idx = i;
@@ -34,16 +33,14 @@ public class CombatManager : MonoBehaviour
         }
         startBattleButton.onClick.AddListener(StartFight);
 
-        Log("Выбери 4 приема");
-        Log("0=Удар(2) 1=Блок 2=Хил(3) 3=Сильный(4)");
-        Log($"Босс HP: {bossHP}");
-        Log($"Сцена: {currentSceneName}");
+        Log("Выбери 4 приема. 0=Удар(2) 1=Блок 2=Хил(3) 3=Сильный(4)");
+        Log("Босс HP: 10");
     }
 
     void AddMove(int move)
     {
         if (fighting) { Log("Бой идет"); return; }
-        if (playerMoves.Count >= 4) { Log("4 приема выбрано"); return; }
+        if (playerMoves.Count >= 4) { Log("4 приема выбрано. Жми СТАРТ"); return; }
         playerMoves.Add(move);
         Log($"Выбрал: {MoveName(move)}. Осталось: {4 - playerMoves.Count}");
     }
@@ -51,15 +48,38 @@ public class CombatManager : MonoBehaviour
     void StartFight()
     {
         if (playerMoves.Count != 4) { Log("Надо 4 приема"); return; }
+
         fighting = true;
         playerHP = 10;
         bossHP = 10;
+
+        string currentScene = SceneManager.GetActiveScene().name;
+        if (currentScene == "Boss1")
+        {
+            bossLevel = 1;
+            currentPattern = bossPattern1;
+        }
+        else if (currentScene == "Boss2")
+        {
+            bossLevel = 2;
+            currentPattern = bossPattern2;
+        }
+        else
+        {
+            bossLevel = 3;
+            currentPattern = bossPattern3;
+        }
+
         moveIndex = 0;
         bossMoveIndex = 0;
+        waiting = false;
+
         startBattleButton.interactable = false;
         foreach (Button b in actionButtons) b.interactable = false;
+
         UpdateHealthBars();
-        Log("=== БОЙ НАЧАЛСЯ ===");
+        Log($"=== БОЙ С БОССОМ {bossLevel} НАЧАЛСЯ ===");
+        Log($"HP БОССА: {bossHP}");
         Invoke(nameof(NextTurn), turnDelay);
     }
 
@@ -67,27 +87,10 @@ public class CombatManager : MonoBehaviour
     {
         if (!fighting || waiting) return;
 
-        if (playerHP <= 0)
-        {
-            Log("ТЫ ПРОИГРАЛ. ПЕРЕЗАПУСК...");
-            fighting = false;
-            Invoke(nameof(RestartScene), 2f);
-            return;
-        }
-
-        if (bossHP <= 0)
-        {
-            Log("БОСС ПОВЕРЖЕН");
-            fighting = false;
-            Log($"ПЕРЕХОД НА СЦЕНУ: {nextSceneName}");
-            Invoke(nameof(NextScene), 2f);
-            return;
-        }
-
         waiting = true;
 
         int playerMove = playerMoves[moveIndex];
-        int bossMove = bossPattern[bossMoveIndex];
+        int bossMove = currentPattern[bossMoveIndex];
 
         Log($"Ход {moveIndex + 1}: Ты {MoveName(playerMove)} | Босс {MoveName(bossMove)}");
 
@@ -106,11 +109,30 @@ public class CombatManager : MonoBehaviour
         Log($"Твое HP: {playerHP} | Босс HP: {bossHP}");
 
         moveIndex = (moveIndex + 1) % playerMoves.Count;
-        bossMoveIndex = (bossMoveIndex + 1) % bossPattern.Count;
+        bossMoveIndex = (bossMoveIndex + 1) % currentPattern.Count;
 
         waiting = false;
-        if (fighting && playerHP > 0 && bossHP > 0)
+
+        if (playerHP <= 0)
+        {
+            Log("ТЫ ПРОИГРАЛ. ПЕРЕЗАПУСК ЧЕРЕЗ 2 СЕКУНДЫ...");
+            fighting = false;
+            Invoke(nameof(RestartScene), 2f);
+            return;
+        }
+
+        if (bossHP <= 0)
+        {
+            Log($"БОСС {bossLevel} ПОВЕРЖЕН. ПЕРЕХОД ЧЕРЕЗ 2 СЕКУНДЫ...");
+            fighting = false;
+            Invoke(nameof(NextScene), 2f);
+            return;
+        }
+
+        if (fighting)
+        {
             Invoke(nameof(NextTurn), turnDelay);
+        }
     }
 
     void Fight(int p, int b, ref int pDmg, ref int bDmg, ref int pH, ref int bH)
@@ -144,20 +166,25 @@ public class CombatManager : MonoBehaviour
 
     void NextScene()
     {
-        if (!string.IsNullOrEmpty(nextSceneName))
+        string currentScene = SceneManager.GetActiveScene().name;
+
+        if (currentScene == "Boss1")
         {
-            SceneManager.LoadScene(nextSceneName);
+            SceneManager.LoadScene("Boss2");
+        }
+        else if (currentScene == "Boss2")
+        {
+            SceneManager.LoadScene("Boss3");
         }
         else
         {
-            Log("ОШИБКА: Не указано имя следующей сцены!");
-            Debug.LogError("nextSceneName не задан в инспекторе");
+            Log("ТЫ ПРОШЕЛ ВСЮ ИГРУ");
         }
     }
 
     void RestartScene()
     {
-        SceneManager.LoadScene(currentSceneName);
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
     string MoveName(int m)
